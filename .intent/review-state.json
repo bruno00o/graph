@@ -3,17 +3,17 @@
   "baseline": "651f9b710b92a59b04c2b3fd7b84c1be53f8a920",
   "items": {
     "skill:skills/core/SKILL.md": {
-      "fingerprint": "96edb09d7159cb3963707269b29c0506db57a437e63352b9664c32750d5dffe1",
+      "fingerprint": "67d9c52b7c0c7969685151cea24ec5c6ad81fa4fb0b33745883b77a331edb40b",
       "snapshot": {
         "docs/content/docs/(guide)/browser-support.mdx": "39d77f111e55dce95fdd48b2e8bea5c8eab825ba2f2d663700df9aa8ac57033e",
         "docs/content/docs/(guide)/data.mdx": "161848cdc1f5d694c0e2124c29c9feed224b88cd9aae6a8e9ff1840d26f0ac09",
-        "docs/content/docs/(guide)/installation.mdx": "b5ad1722b7f08e9bd559b0de611bec1325bc64b7dcbc48a3c53b3307bb74949b",
+        "docs/content/docs/(guide)/installation.mdx": "9ff2cb595edac9d578a2b3c36913e19bf541edb6503987d630afdc647b897d16",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/(guide)/vanilla.mdx": "dabaa2aa2557ed477e71c19db6fc6e421b030bc6f0284ec8290f123cbf1e6e48",
         "docs/content/docs/api/define-graph.mdx": "86178755b57f150fbf83f931cfcf67a65d4bb0bad1394a002e6e70736d54ecfa",
-        "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
+        "docs/content/docs/api/events.mdx": "0f122663b93c873272b263ca291f2824b33e8c422991b0ca586c178ebc8b0b00",
         "docs/content/docs/api/graph-core.mdx": "edd40bc3a2add08f8f4a5a61a738abc085b87980a86c69a54dba1dceba7eca7e",
         "docs/content/docs/api/graph-instance.mdx": "7d7d4da954a38a10298257f3806981683e9a22de870ff6f634b8dc13b591495e",
         "docs/content/docs/api/mount-graph.mdx": "dce06feb8fd1afaf122d8e0655eab01c537a012ce0e6566f718d519367600ef0",
@@ -27,51 +27,52 @@
         "src/define-graph.ts": "c75c589baa97b4a2646fced08340707d421c9ddebcf6bca47d729107802392c4",
         "src/host/data-reads.ts": "ef5b8583152930b6c8c3cc1fb92c833a0ba3152ec8aac29c0b886b895f9c805d",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
-        "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
-        "src/host/graph-core.ts": "9ffb3d0e0dea9c1dab49159ed06cee806dea06b6bdef02605a26e44e0a210d6c",
+        "src/host/events.ts": "5fd0520020da9514241628649b7469929c0a82764efe64050c2beb806b79449b",
+        "src/host/graph-core.ts": "d93729350fc8fc7e812cb95f4efb4093e0e2346f3f58c55439da1cd47c22c1e7",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/render-host.ts": "6e77c815a2c219f9777f13e35246593ebaf730b7a0f155a4c5f26d83df25b3bb",
         "src/index.ts": "bd33a2d87186cb6316b6cd562804c4a986e5e714e304fdbca1f482b13a16bc2b",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "graph-core.ts registers its path source for the ways subpath (PR 288): internal wiring, the definition, the mount and the instance the skill teaches are unchanged.",
+      "reason": "graph-core.ts registers a graph after its internals (PR 293) and counts agent actions (PR 296); events.ts adds the origin 'agent', taught by view and interaction; the installation page mentions the agent plugin, taught by agent. Definition, mount and instance unchanged.",
       "evidence": [
-        "Diff of src/host/graph-core.ts since 0.35.0 read against skills/core/SKILL.md"
+        "Diff of docs/content/docs/(guide)/installation.mdx, docs/content/docs/api/events.mdx, src/host/events.ts, src/host/graph-core.ts since 0.36.0 read against skills/core/SKILL.md"
       ]
     },
     "skill:skills/react/SKILL.md": {
-      "fingerprint": "22a64b57356c7ec8865d3ac3856110aff4e0357247b9587c9974fc0290b5f47e",
+      "fingerprint": "8a61d00182d156613ebe1ddd56bc309411147f70301b8c990da7c964a5915c3b",
       "snapshot": {
-        "docs/content/docs/(guide)/react.mdx": "8423bfc7ad4cb5e1d8ec5249b78891e4ad9e65193bad8544f9125c376b6a6441",
+        "docs/content/docs/(guide)/react.mdx": "25074704bbf4739ac1c2a2c7442e9b5d590749200913a706e854fa6a7ef1f860",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/graph-component.mdx": "4d95a6364b252748a73229e4721ea9773475846fb832b332c0bf335571bb25f5",
         "docs/content/docs/api/hooks.mdx": "c8af98e45765e3c0cbc5cb5b8341d48c694186af5a5d5046e05fbf3017c15193",
-        "skills/react/SKILL.md": "676e05a044a368885457241d1d4c06e0495610b16c7e0aa6a20aedfb80e847b0",
+        "skills/react/SKILL.md": "4d1242de0b0251532f7832eeeab3dfbee28b44ebd74da532f7df5d4237ea79e4",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/map/react.tsx": "a1c0cf0e01a8c1a1687c246063264fa11a69b2fa700939eeef4456129fc77cff",
         "src/react/context.ts": "51df2586df88b3345743f4060f286f909494df64776e7fd9368f37d0b0eb9ef4",
         "src/react/graph.tsx": "636adeaede36f1618c0b8b13517913a237cef6905c6752c0ed29c8ace1be9a9f",
         "src/react/index.tsx": "c466533b238a52afd2d9b3fe3c89dad885e86b75df82ce2b4caacd995d1f7361"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "updated",
-      "reason": "PR 275: hooks and companions that read no page take a GraphCore, panels elsewhere in the page through the ref.",
+      "reason": "PR 294 checks the React entry points under TanStack Redact; the skill now says how to wire it with server rendering and that StrictMode does not mount twice under Redact.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at db40df6: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 275: skills changed with the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/react.mdx, docs/content/docs/api/hooks.mdx, src/react/context.ts, src/react/index.tsx since 0.33.0 read against skills/react/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 10bf795: every fence typechecked, published copies under 500 lines",
+        "Maintainer review: skill changed after the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/react.mdx since 0.36.0 read against skills/react/SKILL.md"
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "4512095dedda692de273a14b0c99985077f13ddd95df9da51d0cabd296a562a5",
+      "fingerprint": "27ba275e6688b293a0e89570fc62d17deae8aacd3176c9a058ec7d1be8764eed",
       "snapshot": {
-        "_artifacts/domain_map.yaml": "8d251180be882b0b43ac023524741969d4ec0d8e5ec3e01ba61df34551496f77",
-        "_artifacts/skill_spec.md": "342624a9d5826704baf6f17b32151f4e4661aed2ab3897982336b91f850b0761",
-        "_artifacts/skill_tree.yaml": "5bc2bcfc15fe9ce3cc1143eacbc96bc2e095fc9eec858f9ff3269fcf6323adb5",
+        "_artifacts/domain_map.yaml": "8dbcb5deda5e3141bd928ff48f3055993b4005709e1b556d1b17b34ccdb6a294",
+        "_artifacts/skill_spec.md": "41452033d14e9593273ab6632161291d84b13d3ba4454c69715ec6b4ffb8a31d",
+        "_artifacts/skill_tree.yaml": "c7ea33b58dec06c6de097949d046b3e4114316d780bc50caa4b6dc0ceef47952",
+        "docs/content/docs/(guide)/agent.mdx": "89e55b7cb7afc95e973a5a90d629e3364544402c26eb29ab6e280a05d87fe7ec",
         "docs/content/docs/(guide)/browser-support.mdx": "39d77f111e55dce95fdd48b2e8bea5c8eab825ba2f2d663700df9aa8ac57033e",
         "docs/content/docs/(guide)/bundling.mdx": "2e7ce5553a531b1f791438feb857d2a29b765ce34c965dfac7e305de5b22c8a8",
         "docs/content/docs/(guide)/cypher.mdx": "28358088adf95d4075fa90b91a9d44e62cc7fe17a057cbf87a4f7c9545871ca8",
@@ -83,7 +84,7 @@
         "docs/content/docs/(guide)/file-formats.mdx": "85a5b67a9641ff47830a6679cb54605f798fcd548d2056574a679ea912868026",
         "docs/content/docs/(guide)/groups.mdx": "e65ddc00d5c0e7ef1d8c596ab4882df2aa1cb9d5adae90475656210a24dbe6f7",
         "docs/content/docs/(guide)/images-and-badges.mdx": "9ac154d92f4d562b7112575a93c935307d3e42f2ec56de5f2d34728abc705159",
-        "docs/content/docs/(guide)/installation.mdx": "b5ad1722b7f08e9bd559b0de611bec1325bc64b7dcbc48a3c53b3307bb74949b",
+        "docs/content/docs/(guide)/installation.mdx": "9ff2cb595edac9d578a2b3c36913e19bf541edb6503987d630afdc647b897d16",
         "docs/content/docs/(guide)/interaction.mdx": "13f2668a90b7c643a59b496bdf294ef7098a355d814b2ee74e015b97ad3d3218",
         "docs/content/docs/(guide)/labels.mdx": "aab4ca7eb5e86a40ac64614e2455fa219745bb5edeea3571ae2e57a386d4caee",
         "docs/content/docs/(guide)/layout.mdx": "57e1f377cd27261bb2ee2a00f8a49fa4193265907a492903df5d5d0186d5cb84",
@@ -93,9 +94,9 @@
         "docs/content/docs/(guide)/minimap-and-legend.mdx": "00911429a72f29a998d41eaa92712c0a8a658bd52d9a8772312c724e3650cbf9",
         "docs/content/docs/(guide)/multilayer.mdx": "5d2b375c32c23813b510704e49675482ae450937219c8aaa5c1405b2de387c01",
         "docs/content/docs/(guide)/paths.mdx": "0e05d8771cde786f5d5fc701874879053a5d3666a858a3f34f3b2cd383a29362",
-        "docs/content/docs/(guide)/positions.mdx": "7e4d6ad65ca5f1c27b9ca0a1b9270bb525e70fcba347cb0a62a7d065336bb003",
+        "docs/content/docs/(guide)/positions.mdx": "6e30d04124ea60b029876acf28c840849411dd0181496829f6d37559ad0424e5",
         "docs/content/docs/(guide)/quick-start.mdx": "d237e0b32f690a3f42e8e28f171d4ffc290e1692286222354f70665cd8884c67",
-        "docs/content/docs/(guide)/react.mdx": "8423bfc7ad4cb5e1d8ec5249b78891e4ad9e65193bad8544f9125c376b6a6441",
+        "docs/content/docs/(guide)/react.mdx": "25074704bbf4739ac1c2a2c7442e9b5d590749200913a706e854fa6a7ef1f860",
         "docs/content/docs/(guide)/routing.mdx": "fccaa9b9054028a68aa567a0a0de7a9bd7425015dd37b256a770afc23a853c1d",
         "docs/content/docs/(guide)/scales.mdx": "953c8fa7e73d4a25a57abefe823325aa8c21c9252b5655b6360d953487d19bb6",
         "docs/content/docs/(guide)/server-side-extracts.mdx": "b1eff300db342fe9e7654ad1d43d92865a0e12f3b09a2e3c4892bfe20f3c440b",
@@ -108,8 +109,10 @@
         "docs/content/docs/(guide)/transformations.mdx": "b9d5c818e34d962650bf6f7edb6f6eda7995ad4c40839d012a2b3f0cbabb133b",
         "docs/content/docs/(guide)/typescript.mdx": "199d903af9b7fb5dfaa9cb9f8ea654da72fd8fbc47712c2f9e8dbf25d31841ea",
         "docs/content/docs/(guide)/vanilla.mdx": "dabaa2aa2557ed477e71c19db6fc6e421b030bc6f0284ec8290f123cbf1e6e48",
-        "docs/content/docs/(guide)/view.mdx": "7dcfd8f22c1304722fc8dec8e40afb5b925ddde0b555c26f8bcd531dd2542eb7",
+        "docs/content/docs/(guide)/view.mdx": "76272c82c4da94192586e974aee2b3f740876a5458a4ab692b657a339434feed",
         "docs/content/docs/(guide)/zoom.mdx": "3ba61e43cda3aa11cb485a3da120469588ca9fc796f909f11ba607c76db69fca",
+        "docs/content/docs/api/agent-vite.mdx": "64d6d8be4e368f5c9e665da4dce3016bec4b1a6e69c934869d7515be92c1ea48",
+        "docs/content/docs/api/agent.mdx": "f7336e5e46e16fb837838e1adeb847cdcd137b5a79fd3a327e104d1f741d9633",
         "docs/content/docs/api/anchor.mdx": "94672c34c1d4736bd9c5067517561f9f8e5f0834df3d3d294a263155eb254123",
         "docs/content/docs/api/bundling.mdx": "da6d79979c997144343299a7a5083996fd91f383d8949973c3caf4d3cafcddf7",
         "docs/content/docs/api/chains.mdx": "bc326b7cb7c8f81bccdb39192c28dfd5c8d99d07855d055e76e9645ef1555bf5",
@@ -120,7 +123,7 @@
         "docs/content/docs/api/devtools.mdx": "154824212bf4f7394efc66231f3678d5984db846a40d95b2c8288e401b67746f",
         "docs/content/docs/api/edges.mdx": "f8fe1b31b38c5de8d30e44f8128fc9a8acac86214f3eccf8aef4327ae674b907",
         "docs/content/docs/api/editor.mdx": "2e72adfd0f2ee2156b57d8b2af0569226d33708ca389f0c8cf38ed2350799b0f",
-        "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
+        "docs/content/docs/api/events.mdx": "0f122663b93c873272b263ca291f2824b33e8c422991b0ca586c178ebc8b0b00",
         "docs/content/docs/api/export.mdx": "82661801d9a04fa8a4810e9ca941ed2de441e5770b51b475bad45d6a9e09085f",
         "docs/content/docs/api/force.mdx": "1e6297d2b240a3a6b5107ed68dcfa329ae8c22d2981be2d0902d645aacb977d1",
         "docs/content/docs/api/formats.mdx": "f37ea7d64a0660710538a3d83611d11bf7c68e8341c5daa7a89d9ccc541542f7",
@@ -151,6 +154,7 @@
         "docs/content/docs/api/theme-tokens.mdx": "08d5697b13bf523987647ebde18b8e548f2839671063d02a411bd802a55deb36",
         "docs/content/docs/api/timeline.mdx": "9c6481a7005fe7c91fd50104295afcb4c8e6e21ffa0c0f5c29e43c77b213c98b",
         "docs/content/docs/api/ways.mdx": "007616798973bb14dfa6f9a2acbf44b04b1d4589e8ed9318c87ddf66c97a1372",
+        "skills/agent/SKILL.md": "9e8133c036d5449044901673f8d61c6ff0a021150f1db114cefe013b51e3046d",
         "skills/core/SKILL.md": "b5ee661b4db508f93b02282e19fe4010e9bbfecdfe5bf9b3b461e43a72838934",
         "skills/core/references/live-data.md": "93ea5f644e8bac16d887a869f5d9b9e9dd7bb04f35dee1d568e027df718cbb3f",
         "skills/core/references/rendering.md": "9d62574cfb660723ad8ad272519e42b24dbd3e17b5b9fa2c504cb7a1650dc800",
@@ -165,18 +169,18 @@
         "skills/groups/SKILL.md": "a78153f6c920d63437d7bb55a7a4dfd6c65a29808d30c5ed0712d42b6e2db4d5",
         "skills/headless/SKILL.md": "7afe21783674a4113c215274eefe516c181f0ae8ab84924095dade67a0e9b826",
         "skills/headless/references/extracts-at-scale.md": "11c1a5c935446398409aadac74305c7ccacf44ce8b729c11d20cde8b29547092",
-        "skills/interaction/SKILL.md": "ebe50756e372d3fcbcb4aa703b03f241195eed17706f7453d8737c58f7827dff",
+        "skills/interaction/SKILL.md": "3415365ab363845e528144d86635384402d8ca5f83f9950e29bb0353a59716a6",
         "skills/interaction/references/elastic-drag.md": "0b44c9207c5b6b347fa858aa705ee565d6c4430261731b9671157b699d3748d3",
         "skills/interaction/references/wheel-glide.md": "5ad5be31b578aa7090baf52da3ecfb29f49a076629c899ade4fe1684c522211b",
-        "skills/layouts/SKILL.md": "9e9efdf257d99ad3dd4373cdfd43d0e890534dd4713efbf96a0abec9ecf2b7f6",
+        "skills/layouts/SKILL.md": "46c012faa56ce56def5da16382e1525e3398068375a76b47829ed82019c4dfa0",
         "skills/layouts/references/chains.md": "96fa111fe631fb2e64f9dca1497d51b0471dff1a2147b9312378aa555f687956",
         "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
-        "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
+        "skills/layouts/references/saving-arrangements.md": "04eee97bf1923afa4c3ba42f7049ba331e3b7eec41df24bcd09656e3b9d6e340",
         "skills/map/SKILL.md": "ba05670d8fe8ddc321014b85dba2b4c21baed9ced5f8dee030aec16962a1dcd4",
         "skills/map/references/surfaces.md": "674dd4af13ae21a4e457ed34d1a657176b4874f8984478f70769385103ad830d",
         "skills/multilayer/SKILL.md": "a498eaa93f1be65d672e34568683e183fbddd0690f4b76689dda5078c9967342",
         "skills/paths/SKILL.md": "53304a26d6602e9d55867552b011c7465f9d849a1b0f58482acf5e70d135fddd",
-        "skills/react/SKILL.md": "676e05a044a368885457241d1d4c06e0495610b16c7e0aa6a20aedfb80e847b0",
+        "skills/react/SKILL.md": "4d1242de0b0251532f7832eeeab3dfbee28b44ebd74da532f7df5d4237ea79e4",
         "skills/shapes/SKILL.md": "c2d0ad9c97515ea267f184ab36854a20bd18f8430a88073176f643828bfd75ed",
         "skills/shapes/references/labels-and-pins.md": "c0e4ae66bda4895ea9ea52ad732a7b3f73d97f269bfeae33e2bac809ab83bb69",
         "skills/shapes/references/maps.md": "bcf6f4641b271d6987b8b61f77acb1c02092dcf3a55b9f26edc7a69dd210a739",
@@ -190,7 +194,16 @@
         "skills/tools/SKILL.md": "76a0d1145c601b9812ad5e06678859891f3906281e8e0ad5d03ab37a9663f468",
         "skills/tools/references/hulls.md": "be59e08cbce460403bf959cd29136a311b4636b88fa1e087315fc30f5704d79b",
         "skills/tools/references/legend-entries.md": "bec300adfa2daed6a466bd700a119e05338a0e619dcb1f8be8f3beb0cc584a04",
-        "skills/view/SKILL.md": "b0344f7b9d4b6cce300c05dbd09c7fb23ca55b44cce4f892783dc33fccd48ac7",
+        "skills/view/SKILL.md": "2cf0478da6eb6b3979664e90415a253ad573a7d0454ef7a7984a50ea2bf8854c",
+        "src/agent/act.ts": "c197ec44ccc41aea9b2d9c903dedbb175ac58e108a7d805398372c1dc7ff234f",
+        "src/agent/agent.ts": "679656ad864884ff43b26d3f448dc203200b10066f9834cf3cef70d5090a34cf",
+        "src/agent/cli.ts": "60879463b64d136642b66b439c872a6873c8cf63c208b255f2862b173dadad21",
+        "src/agent/dev.ts": "4cf97f21da1e4d032fc54797311bdaaf1f1a4ff7de90d9dd23658081c27b340a",
+        "src/agent/index.ts": "4ba0c84f4ec0e2425d2bfc16400c3bf2ca33435788c08c1ce2a8e5170dbd97d5",
+        "src/agent/query.ts": "15e8e9dc9dfce27cdedea2f75dce931293b90f489c0b590d484563d58d54c4b0",
+        "src/agent/read.ts": "cfa42f332cb06514409ccc426b0c8bbd4ba0e35918463ff6666304cfbc151435",
+        "src/agent/types.ts": "22e417c7d92b77d9020df3ef4ce68bcb28013f3c4845b2c43d4327e83ebf0556",
+        "src/agent/vite.ts": "bb87b8b5b3077c94dac431ae3c55200d7e5865bd34d9ae4bc848db2de78c90e8",
         "src/bundling/density.ts": "607e5b3d0bc8e84719501ee527969d5d9cbd933d59f20895689bd73f6d97ee9a",
         "src/bundling/index.ts": "76ed00fc9692eccc94c7a8dc4a31cefe2887f16eb609413f0ca6bae7d66f8b8c",
         "src/core/geo.ts": "086260640f45190182b6ff576227d98fcf7e2c267a936283d4f7e3a2960135d0",
@@ -251,9 +264,9 @@
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/host/drag-follow.ts": "dfea39ab59d67390337edea2b6cf2c77f8bb29f08a08c3f6a3791624f0644ef9",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
+        "src/host/events.ts": "5fd0520020da9514241628649b7469929c0a82764efe64050c2beb806b79449b",
         "src/host/folding.ts": "67312b45a1146b2b312fc2571d6ec3119791b08d7fadb6e40773abc81885e63b",
-        "src/host/graph-core.ts": "9ffb3d0e0dea9c1dab49159ed06cee806dea06b6bdef02605a26e44e0a210d6c",
+        "src/host/graph-core.ts": "d93729350fc8fc7e812cb95f4efb4093e0e2346f3f58c55439da1cd47c22c1e7",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
@@ -266,7 +279,7 @@
         "src/host/render-host.ts": "6e77c815a2c219f9777f13e35246593ebaf730b7a0f155a4c5f26d83df25b3bb",
         "src/host/selection-control.ts": "a4758724ac15b068f070e95b166994a888e5af21726a6163cf3b0f809de07a66",
         "src/host/spread.ts": "62c04cc87cc156e8643560bbd352070aa8056767d4c26b4fcce4271c70f6af59",
-        "src/host/view-control.ts": "1b64ef8fe66551eb6fea31d19751a50f2a0d2f61d71517a3724bb11fe51d0780",
+        "src/host/view-control.ts": "10771828ce30b543f76a2a2163781fe27b23659f34cfbf79b2cf2d963295bd2c",
         "src/host/wheel-glide.ts": "d1fe92a37e3703e3f134f775f56c1f7cd6afcca705acbc1db236c674015ff87a",
         "src/hulls.ts": "0d083a6b8c4374b8d1a5d1cba2796ed8e00206e9968a489227464bc7000cd2ca",
         "src/index.ts": "bd33a2d87186cb6316b6cd562804c4a986e5e714e304fdbca1f482b13a16bc2b",
@@ -311,12 +324,12 @@
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163",
         "src/ways/index.ts": "740483e9cd6b267b7fb32c11245ef9d8a8a5c9dc9aaae337c7f6deea11c95b1f"
       },
-      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "updated",
-      "reason": "PR 291: failure modes for ways and chains in domain_map.yaml (plus two layouts modes the registry lacked), skill_spec.md aligned, sources and references/chains.md declared in skill_tree.yaml.",
+      "reason": "PR 296: the agent skill entered in skill_tree.yaml with its sources, failure modes in domain_map.yaml, skill_spec.md aligned.",
       "evidence": [
         "intent maintainer status reports 0 files to sync and 0 authoring issues",
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 877fcd8: every fence typechecked, published copies under 500 lines"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 10bf795: every fence typechecked, published copies under 500 lines"
       ]
     },
     "source:docs/content/docs/(guide)/agent-skills.mdx": {
@@ -332,15 +345,15 @@
       ]
     },
     "source:docs/content/docs/(guide)/meta.json": {
-      "fingerprint": "094f054a0cc6f3e4eec26cdb6e88be6bb05bdf85355c71a4cfc19a95c175b063",
+      "fingerprint": "993bfa1090e356f35398b7da0149597382fcd6aae8b94f01274f0b37a12d03a2",
       "snapshot": {
-        "docs/content/docs/(guide)/meta.json": "e1b647a7675ab6a06452dd439b2262d3ffbf18f6d924b0bd6e6767ad2031c285"
+        "docs/content/docs/(guide)/meta.json": "391b31207ee4843530606f71b7692ce463d428d091b30e3c717681be4bb597ed"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Adds the versioning page to the guide index (PR 277); nothing to teach.",
+      "reason": "Adds the agent guide to the navigation (PR 296); taught by agent.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/meta.json since 0.33.0 read"
+        "Diff of docs/content/docs/(guide)/meta.json since 0.36.0 read"
       ]
     },
     "skill:skills/cypher/SKILL.md": {
@@ -433,7 +446,7 @@
       ]
     },
     "skill:skills/groups/SKILL.md": {
-      "fingerprint": "106263482147803abaaeb87eee6333c18e805c597212268ecfbd5531f7adeadc",
+      "fingerprint": "7f6424745c28843e9c4ec1f3e6e2c187a7d3095c9c7729c30c5fa23715b4720e",
       "snapshot": {
         "docs/content/docs/(guide)/groups.mdx": "e65ddc00d5c0e7ef1d8c596ab4882df2aa1cb9d5adae90475656210a24dbe6f7",
         "docs/content/docs/(guide)/transformations.mdx": "b9d5c818e34d962650bf6f7edb6f6eda7995ad4c40839d012a2b3f0cbabb133b",
@@ -442,28 +455,28 @@
         "src/core/hierarchy.ts": "8f32d5b30633fe9a6b042d5ddf81d4fb6716f1119aaba940773c07d9e55b839d",
         "src/core/projection.ts": "1a883328745fea297e1a3d0335d387405390566d2ea6cd58b3b6a727c0144c23",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
+        "src/host/events.ts": "5fd0520020da9514241628649b7469929c0a82764efe64050c2beb806b79449b",
         "src/host/folding.ts": "67312b45a1146b2b312fc2571d6ec3119791b08d7fadb6e40773abc81885e63b",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/picking.ts": "8afd5e22871861af2b8f796b755b885bd74d0dc3773ae057435516e54a4721e6",
         "src/marks.ts": "16042bca9638c51e51b7b2095e9b328bd041787470caa51ca1173f6468ff8e45",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "types.ts adds the elastic drag and events.ts rewords the JSDoc of positionchange (PR 284): folding, groups() and container options unchanged; members of unfolded groups never follow, taught by interaction (references/elastic-drag.md).",
+      "reason": "events.ts adds the origin 'agent' to viewchange and positionchange (PR 296); nothing about groups changes.",
       "evidence": [
-        "Diff of src/host/events.ts, src/types.ts since 0.34.0 read against skills/groups/SKILL.md"
+        "Diff of src/host/events.ts since 0.36.0 read against skills/groups/SKILL.md"
       ]
     },
     "skill:skills/interaction/SKILL.md": {
-      "fingerprint": "140ba39e23d916e1d655291df604d4f0ee7718de609d6cffd0ad3e0ff2c263b1",
+      "fingerprint": "412634c9691ade96cf4a2f02f40dc81ff9c651fd25aa661b74c6479a929bb88f",
       "snapshot": {
         "docs/content/docs/(guide)/interaction.mdx": "13f2668a90b7c643a59b496bdf294ef7098a355d814b2ee74e015b97ad3d3218",
         "docs/content/docs/(guide)/states.mdx": "044a75872dbc3b56d7ae2e5f85bd91b6fdfce40b1c99601439d2ba5a80cb1293",
         "docs/content/docs/api/define-graph.mdx": "86178755b57f150fbf83f931cfcf67a65d4bb0bad1394a002e6e70736d54ecfa",
-        "docs/content/docs/api/events.mdx": "21c71eb885050cc5f600cc5237e7c3d6c25806d8a69c51538000effeccfd2416",
-        "skills/interaction/SKILL.md": "ebe50756e372d3fcbcb4aa703b03f241195eed17706f7453d8737c58f7827dff",
+        "docs/content/docs/api/events.mdx": "0f122663b93c873272b263ca291f2824b33e8c422991b0ca586c178ebc8b0b00",
+        "skills/interaction/SKILL.md": "3415365ab363845e528144d86635384402d8ca5f83f9950e29bb0353a59716a6",
         "skills/interaction/references/elastic-drag.md": "0b44c9207c5b6b347fa858aa705ee565d6c4430261731b9671157b699d3748d3",
         "skills/interaction/references/wheel-glide.md": "5ad5be31b578aa7090baf52da3ecfb29f49a076629c899ade4fe1684c522211b",
         "src/core/lasso.ts": "e6e337b0baa0757d1bbb5c9d3620013b9c9c8a8b0052afc02dd3a948b91879fe",
@@ -471,7 +484,7 @@
         "src/define-graph.ts": "c75c589baa97b4a2646fced08340707d421c9ddebcf6bca47d729107802392c4",
         "src/host/drag-follow.ts": "dfea39ab59d67390337edea2b6cf2c77f8bb29f08a08c3f6a3791624f0644ef9",
         "src/host/element-keys.ts": "9442dac9ddf31a86e34f16ad260acfe74eeb7c707951b5a900e2996d730b2c5a",
-        "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
+        "src/host/events.ts": "5fd0520020da9514241628649b7469929c0a82764efe64050c2beb806b79449b",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/keyboard.ts": "4064143fb5c9bcda9df687d5a10a1e925131bf43c608a06ca86aa6b564df9838",
         "src/host/pointer-input.ts": "87bce408befcc5b380e2441da88e4efca99bf2858de8c9114aec57f20bee4e1f",
@@ -480,27 +493,27 @@
         "src/layouts/force/follow.ts": "3952fde1d1a2546477efc5b48f72c2c8749ab8e6d94d2c36c8a902ee4feca485",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "updated",
-      "reason": "PR 284: interaction.drag takes 'elastic', the neighbors follow a dragged node with a layout that has follow (force), between runs and off a map, one positionchange 'drag' for the followers, settled() waits, reduced motion jumps; the experimental Layout.follow port and LayoutFollower in references/elastic-drag.md, new failure mode on 'elastic' without a layout that follows. Sources src/host/drag-follow.ts and src/layouts/force/follow.ts added to the frontmatter by the review PR, as in skill_tree.yaml.",
+      "reason": "positionchange gains the origin 'agent' (PR 296); the skill now lists it.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 6e8a249: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 284: skill changed with the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/interaction.mdx, docs/content/docs/api/define-graph.mdx, src/define-graph.ts, src/host/drag-follow.ts, src/host/events.ts, src/host/pointer-input.ts, src/layouts/force/follow.ts, src/types.ts since 0.34.0 read against skills/interaction/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 10bf795: every fence typechecked, published copies under 500 lines",
+        "Maintainer review: skill changed after the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/api/events.mdx, src/host/events.ts since 0.36.0 read against skills/interaction/SKILL.md"
       ]
     },
     "skill:skills/layouts/SKILL.md": {
-      "fingerprint": "41d22e9f2725a6250480c056569ae6fc8a1ba0981507da11ac6cdd7f89a37813",
+      "fingerprint": "c4df4e58ebcf048cc7810cdd396ebf007bee418763f0bb71663f7987f959c96d",
       "snapshot": {
         "docs/content/docs/(guide)/layout.mdx": "57e1f377cd27261bb2ee2a00f8a49fa4193265907a492903df5d5d0186d5cb84",
-        "docs/content/docs/(guide)/positions.mdx": "7e4d6ad65ca5f1c27b9ca0a1b9270bb525e70fcba347cb0a62a7d065336bb003",
+        "docs/content/docs/(guide)/positions.mdx": "6e30d04124ea60b029876acf28c840849411dd0181496829f6d37559ad0424e5",
         "docs/content/docs/api/chains.mdx": "bc326b7cb7c8f81bccdb39192c28dfd5c8d99d07855d055e76e9645ef1555bf5",
         "docs/content/docs/api/force.mdx": "1e6297d2b240a3a6b5107ed68dcfa329ae8c22d2981be2d0902d645aacb977d1",
         "docs/content/docs/api/layouts.mdx": "77216db768bdbea2cf776a877fe60d4af718d84ca72038d6969947efc5c90d9f",
-        "skills/layouts/SKILL.md": "9e9efdf257d99ad3dd4373cdfd43d0e890534dd4713efbf96a0abec9ecf2b7f6",
+        "skills/layouts/SKILL.md": "46c012faa56ce56def5da16382e1525e3398068375a76b47829ed82019c4dfa0",
         "skills/layouts/references/chains.md": "96fa111fe631fb2e64f9dca1497d51b0471dff1a2147b9312378aa555f687956",
         "skills/layouts/references/group-layouts.md": "709100651c4e31a3f675ae41d554326f374f2b8a9b8f53d09528e7b6ba9a41d3",
-        "skills/layouts/references/saving-arrangements.md": "dd87d99b96ee0ebe49c548aafc48624fb771229d149ca1c1c0cf09e38e9c5a31",
+        "skills/layouts/references/saving-arrangements.md": "04eee97bf1923afa4c3ba42f7049ba331e3b7eec41df24bcd09656e3b9d6e340",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/host/layout-graph.ts": "50b6934904fd8dad08d47812b2f9b271c066010335c90998fd24cb7ed0938911",
@@ -517,20 +530,20 @@
         "src/layouts/scopes.ts": "bb82987ae7fc0aa125f493cb21df782fa510cc181a6e74d0887b54a30cf7684f",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "updated",
-      "reason": "PR 290 adds chains() in @bruno00o/graph/layouts/chains; PR 291 adds it to the table of layouts and teaches it in references/chains.md (typed example, step, units, branches, fixed nodes), with failure modes for the /layouts import and exits that do not link.",
+      "reason": "positionchange gains the origin 'agent' (PR 296); the skill and references/saving-arrangements.md now list it.",
       "evidence": [
-        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 877fcd8: every fence typechecked, published copies under 500 lines",
-        "Maintainer review of PR 291: skill changed after the code, examples without comments, no other library named",
-        "Diff of docs/content/docs/(guide)/layout.mdx, docs/content/docs/api/chains.mdx, src/layouts/chains/index.ts since 0.35.0 read against skills/layouts/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 10bf795: every fence typechecked, published copies under 500 lines",
+        "Maintainer review: skill changed after the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/positions.mdx since 0.36.0 read against skills/layouts/SKILL.md"
       ]
     },
     "skill:skills/map/SKILL.md": {
-      "fingerprint": "9c20fb8c666f1d3db5ecb4eb335957fd53e463c25e650c569fe9339c8e9722ea",
+      "fingerprint": "b346a551fc8a3a583b0dfd2d3de2be18dd2add183f687f48a1108604af39e7e4",
       "snapshot": {
         "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
-        "docs/content/docs/(guide)/positions.mdx": "7e4d6ad65ca5f1c27b9ca0a1b9270bb525e70fcba347cb0a62a7d065336bb003",
+        "docs/content/docs/(guide)/positions.mdx": "6e30d04124ea60b029876acf28c840849411dd0181496829f6d37559ad0424e5",
         "docs/content/docs/api/graph-component.mdx": "4d95a6364b252748a73229e4721ea9773475846fb832b332c0bf335571bb25f5",
         "docs/content/docs/api/map-graph.mdx": "c14328cb9f7aae7b78cee22ca17d66c307e4541be265981b91bc36dfc9595fd0",
         "docs/content/docs/api/map.mdx": "2c8cc6c38f3ebd46473b893135ec12f8b8417f54ba027b0e0c493b5ba6c1c04c",
@@ -549,11 +562,11 @@
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3",
         "src/waypoints.ts": "c317b478d2bf70ca9a112128b8b9b8b17dbfff411ac7d18a4b98d14b31905163"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "types.ts and positions.mdx add the elastic drag (PR 284), which never runs on a map: map APIs unchanged, taught by interaction (references/elastic-drag.md).",
+      "reason": "positions.mdx lists the origin 'agent' (PR 296); map behaviour unchanged.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/positions.mdx, src/types.ts since 0.34.0 read against skills/map/SKILL.md"
+        "Diff of docs/content/docs/(guide)/positions.mdx since 0.36.0 read against skills/map/SKILL.md"
       ]
     },
     "skill:skills/multilayer/SKILL.md": {
@@ -658,7 +671,7 @@
       ]
     },
     "skill:skills/time/SKILL.md": {
-      "fingerprint": "1f4b886c793e06f1a799311bd5604690d7eb65988a714764b10f3c3d0a4cf996",
+      "fingerprint": "3a58361d1ed1d7e3ecc86f94156ad0e7be723263f8cbd8fb79be023fb69fa13a",
       "snapshot": {
         "docs/content/docs/(guide)/time.mdx": "78dc4e69f2b43361925aaecced96d3f1c6eb6d160601944daa48952854cf1085",
         "docs/content/docs/api/history.mdx": "6955b82f05e83c0b87dcfb727d0202b87f875e6b5fc5499afe7ccb26b7071c18",
@@ -671,7 +684,7 @@
         "src/core/time-range.ts": "a4dfab2cee1e8ab17929202cf8245057d2af8426c0b5a1960edd022b42ec09b0",
         "src/history/index.ts": "0d27712ad7e058f10c1d4524dc9cb3765490cbf6f10c87818d34508e6cf20692",
         "src/history/presence.ts": "a7d46e8c3afa1ede44a1c226919fcfc33c8424e67c90436cc0b8a4e418062207",
-        "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
+        "src/host/events.ts": "5fd0520020da9514241628649b7469929c0a82764efe64050c2beb806b79449b",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/react/index.tsx": "c466533b238a52afd2d9b3fe3c89dad885e86b75df82ce2b4caacd995d1f7361",
         "src/timeline/events.ts": "a8184670257037031a48eb6fddb82d9573802a9dff03a9e684105d88d874cc7f",
@@ -679,11 +692,11 @@
         "src/timeline/view.ts": "23befbf7169c34e676f7bc589bd1f1126a11bf30babcc23330f319ec3a48bf9a",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "types.ts adds the elastic drag and events.ts rewords the JSDoc of positionchange (PR 284): time channel, timeline and history unchanged, taught by interaction (references/elastic-drag.md).",
+      "reason": "events.ts adds the origin 'agent' to viewchange and positionchange (PR 296); nothing about time changes.",
       "evidence": [
-        "Diff of src/host/events.ts, src/types.ts since 0.34.0 read against skills/time/SKILL.md"
+        "Diff of src/host/events.ts since 0.36.0 read against skills/time/SKILL.md"
       ]
     },
     "skill:skills/tools/SKILL.md": {
@@ -721,38 +734,40 @@
       ]
     },
     "skill:skills/view/SKILL.md": {
-      "fingerprint": "b37758193fb4ab117046511931bb5632fff02ad2b248e85606f4bce142651f2c",
+      "fingerprint": "1274e7b43b3aff8d6cf2233693e68ea105a9d5181f809bb07a9de198fe4316f8",
       "snapshot": {
-        "docs/content/docs/(guide)/view.mdx": "7dcfd8f22c1304722fc8dec8e40afb5b925ddde0b555c26f8bcd531dd2542eb7",
+        "docs/content/docs/(guide)/view.mdx": "76272c82c4da94192586e974aee2b3f740876a5458a4ab692b657a339434feed",
         "docs/content/docs/(guide)/zoom.mdx": "3ba61e43cda3aa11cb485a3da120469588ca9fc796f909f11ba607c76db69fca",
         "docs/content/docs/api/define-graph.mdx": "86178755b57f150fbf83f931cfcf67a65d4bb0bad1394a002e6e70736d54ecfa",
         "docs/content/docs/api/graph-instance.mdx": "7d7d4da954a38a10298257f3806981683e9a22de870ff6f634b8dc13b591495e",
-        "skills/view/SKILL.md": "b0344f7b9d4b6cce300c05dbd09c7fb23ca55b44cce4f892783dc33fccd48ac7",
+        "skills/view/SKILL.md": "2cf0478da6eb6b3979664e90415a253ad573a7d0454ef7a7984a50ea2bf8854c",
         "src/core/zoom-range.ts": "d4e664d0658c21479c316c256718be6f954448cfb4011967fe412e8d054a6f79",
         "src/define-graph.ts": "c75c589baa97b4a2646fced08340707d421c9ddebcf6bca47d729107802392c4",
         "src/host/data-status.ts": "29023978fe6983ee39fd4c5b19a0a52511d5d0faba82a9bcdda131c0c57b2f90",
-        "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
+        "src/host/events.ts": "5fd0520020da9514241628649b7469929c0a82764efe64050c2beb806b79449b",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
-        "src/host/view-control.ts": "1b64ef8fe66551eb6fea31d19751a50f2a0d2f61d71517a3724bb11fe51d0780",
+        "src/host/view-control.ts": "10771828ce30b543f76a2a2163781fe27b23659f34cfbf79b2cf2d963295bd2c",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
-      "outcome": "no-change",
-      "reason": "define-graph.ts, define-graph.mdx and types.ts add interaction.drag: 'elastic' (PR 284), events.ts rewords positionchange: view options, fit and controlled view unchanged, taught by interaction (references/elastic-drag.md).",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
+      "outcome": "updated",
+      "reason": "viewchange gains the origin 'agent' (PR 296); the skill now lists it.",
       "evidence": [
-        "Diff of docs/content/docs/api/define-graph.mdx, src/define-graph.ts, src/host/events.ts, src/types.ts since 0.34.0 read against skills/view/SKILL.md"
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 10bf795: every fence typechecked, published copies under 500 lines",
+        "Maintainer review: skill changed after the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/view.mdx, src/host/events.ts, src/host/view-control.ts since 0.36.0 read against skills/view/SKILL.md"
       ]
     },
     "source:docs/content/docs/api/index.mdx": {
-      "fingerprint": "22fe1b36b052de220434d45a3a9506466e736d08f104f2178b81e2231a9c5125",
+      "fingerprint": "96ec79fb41886a84849b70d603de766357d3fbfdbc021ec279e8a7257c73f660",
       "snapshot": {
-        "docs/content/docs/api/index.mdx": "8f6c069d6a728cf81cda8ec90be0065e8d1911fb1eac1bc565b70ba962d4f10f"
+        "docs/content/docs/api/index.mdx": "34b9635489607210aaabcbfab3a6510232ca99f17334b1e6a8d409877c6a3de1"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Index of the API pages lists the new LayoutFollower type (PR 284); the skills link the pages.",
+      "reason": "Lists the agent and agent-vite API pages (PR 296).",
       "evidence": [
-        "Diff of docs/content/docs/api/index.mdx since 0.34.0 read"
+        "Diff of docs/content/docs/api/index.mdx since 0.36.0 read"
       ]
     },
     "source:src/core/key-list.ts": {
@@ -769,15 +784,15 @@
       ]
     },
     "source:src/host/exposure.ts": {
-      "fingerprint": "710a745aaf706cc5e0dfc1c38be8ee88309df26f746e01b4ec60b826201fc57d",
+      "fingerprint": "716c4a41365a37b3c8f541181c9c3e1a0159eb4091920cb91151719cdb7e7e0c",
       "snapshot": {
-        "src/host/exposure.ts": "a9a668a5dc955d295771cf4d9a2cb6d78450f478d7c359286bf4e25c632298cf"
+        "src/host/exposure.ts": "72cee3a3a9d37c8a85396539bef6e343b2c0d4334b2607c8e63508f22de0771b"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
+      "reason": "Exposes idle, agent and indexOf on internals for the bridge (PR 296); internal.",
       "evidence": [
-        "Diff of src/host/exposure.ts since 0.33.0 read"
+        "Diff of src/host/exposure.ts since 0.36.0 read"
       ]
     },
     "source:src/host/folding.ts": {
@@ -793,15 +808,15 @@
       ]
     },
     "source:src/host/internals.ts": {
-      "fingerprint": "6e8b86513b08070201ff623aadf7b05f9a02d62dc5e2bd157bbd7804182d089b",
+      "fingerprint": "87dd7814110f50b7e110332b6dbe24ff69ef2894b6c2d5253a8e6ea0486b2804",
       "snapshot": {
-        "src/host/internals.ts": "51b32e60aaa652018800442bcd89ef06979892e874878fd9f7ad555df22c1014"
+        "src/host/internals.ts": "024a272de4cc280628c2db73f98a02dfdd22a1d54c886a394b1c8fd6dc8ab1cc"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
+      "reason": "Types of idle, agent and indexOf (PR 296); internal.",
       "evidence": [
-        "Diff of src/host/internals.ts since 0.33.0 read"
+        "Diff of src/host/internals.ts since 0.36.0 read"
       ]
     },
     "source:src/host/layer-control.ts": {
@@ -830,15 +845,15 @@
       ]
     },
     "source:src/host/lifecycle.ts": {
-      "fingerprint": "d9ad446540352724aee14c239afcddc76f0461f826f3f8bf55dfce4770dcdd70",
+      "fingerprint": "ada4e2473d9824d95c43ad98dc382665d6f8c217c646a496ff3daf1bed8e0ca1",
       "snapshot": {
-        "src/host/lifecycle.ts": "405561b2af5a46c7f96824df13a0d3b1e60284c04136b35fffe0b3fe97e1a7b8"
+        "src/host/lifecycle.ts": "7ee016226be661b565773e9f91a4878390d157e72744f004f96d05515f2dd1e5"
       },
-      "head": "db40df6965db7c3183b51df79162be3456ed992f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Internal module changed by the opaque definition (ResolvedDefinition), the named payloads, the mount without WebGL2 or the export pixel ratio (PRs 272 to 277); its public effect is taught by the updated skills.",
+      "reason": "Dead versions of the new internals (PR 296); internal.",
       "evidence": [
-        "Diff of src/host/lifecycle.ts since 0.33.0 read"
+        "Diff of src/host/lifecycle.ts since 0.36.0 read"
       ]
     },
     "source:src/host/mount-graph.ts": {
@@ -867,15 +882,15 @@
       ]
     },
     "source:docs/content/docs/(guide)/upgrading.mdx": {
-      "fingerprint": "5281773f4b003d8b6f0bbb3d3f2f59208b21697ba832596117788fe2bcb2f65f",
+      "fingerprint": "265ab97c19ffa628de8e67dd6a534eb9da7cb7cddd65115b8b26db90fb6a3e27",
       "snapshot": {
-        "docs/content/docs/(guide)/upgrading.mdx": "57e5a6863e6f3515509cabf652a124f3412816bb7bf235581f09a109bbf0b5a9"
+        "docs/content/docs/(guide)/upgrading.mdx": "94f1559183fd60aa22bce8fcf6177885bc2abf7ffede960d367e32e4cf939ebf"
       },
-      "head": "7d3d1222fc894aea672bf0e4fd07e0c84618e3cd",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Subsection on untangle on by default under 0.34.0 (PR 282), taught by layouts.",
+      "reason": "Section 0.37.0: the origin 'agent' added to viewchange and positionchange (PR 296); view, interaction and layouts list it.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/upgrading.mdx in PR 282 read"
+        "Diff of docs/content/docs/(guide)/upgrading.mdx since 0.36.0 read"
       ]
     },
     "source:src/core/columns.ts": {
@@ -903,16 +918,15 @@
       ]
     },
     "source:src/core/group-index.ts": {
-      "fingerprint": "df5fd92839d07538de672cc5c33d31a1caabc2afbda4675c55b01fc8c405947c",
+      "fingerprint": "3290f53c9c9ddfb2b0a1736e25754a0a9d85ac7684e7f4f0aff0291e937e6ef6",
       "snapshot": {
-        "src/core/group-index.ts": "08467942a380072d9b3a82a3781e6df9f8228e88a42394e17f7d87fe8cfa235f"
+        "src/core/group-index.ts": "c469efed87b94dac5d4eaff7e30558ed993067a5f0f62c9dfffd3d667571264d"
       },
-      "head": "fbc52f9a3d710398162b1190b41ca977d7678acc",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Implementation of PR 158 (data status, lifecycle) or PR 159 (half masks, picking, shaders, exports, legend); the public behavior is stated in core, tanstack-db, tanstack-query, react, layouts, view, groups, interaction and edges (PR 161).",
+      "reason": "readGroupKey decodes an internal group key for the bridge (PR 296); no public change.",
       "evidence": [
-        "git diff 0.23.1..fbc52f9 -- src/core/group-index.ts: internal to PR 158 or 159",
-        "intent validate skills in pnpm verify passes on main at fbc52f9: 18 skill files, every fence typechecked"
+        "Diff of src/core/group-index.ts since 0.36.0 read"
       ]
     },
     "source:src/core/pick-index.ts": {
@@ -1109,7 +1123,7 @@
       ]
     },
     "skill:skills/shapes/SKILL.md": {
-      "fingerprint": "378470a9ff38171302ddea88d9e79273b8026f32b34e3029e66366cfd38692d7",
+      "fingerprint": "d8cf7e1f305c7b2c7ae1c83682ffa1942517cfe0a1fb0e8edfa60021e8988b95",
       "snapshot": {
         "docs/content/docs/(guide)/map.mdx": "2b5b533febd655c516b3f4513c052f07723d8ca56d5624f88b7311de8ef04bac",
         "docs/content/docs/(guide)/shapes.mdx": "54adb1d1319dd8c484854e50826c9fe3eed47e43be071b12d19073f7aab8d8e6",
@@ -1120,7 +1134,7 @@
         "src/core/shape-engine.ts": "fb204a6b9accbcc4930c71e415051da42f6f63dd845497f121239f5d3039133f",
         "src/core/shape-store.ts": "d40bcad9fd3805557e5ca61c74c21a992dc8192ba3b5856b958f4620b47f1c4c",
         "src/core/width-scale.ts": "50c4c93ce11bc11bc724beb23b6a95ff362c9d5eaa912c8cb1a54686b072deb9",
-        "src/host/events.ts": "62bd7c9802b2ab6e27d29c8f291f403f6e47c2633215ebe5b77e065969c92a11",
+        "src/host/events.ts": "5fd0520020da9514241628649b7469929c0a82764efe64050c2beb806b79449b",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583",
         "src/shapes/anchor.ts": "faa6c99b6e97aefabe7457db463d272fa46924089916ca0410bbaa0bc9bf2e6b",
         "src/shapes/index.ts": "b1862eb6735485ce72ddc698ab30f71b1a2518bd62364e8635a9a32b6cab4c09",
@@ -1130,23 +1144,23 @@
         "src/shapes/wrap.ts": "d6c9fb72d66882b990326037db091a37900c48cbfa184b6362b69639edd5ddd0",
         "src/types.ts": "d36f07208d2736cfc300a3f7ee64a68b71f3b315542e21bae79dec6a2bffdff3"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "types.ts adds the elastic drag and events.ts rewords the JSDoc of positionchange (PR 284): shapes are not dragged and never follow; shapes APIs unchanged, taught by interaction (references/elastic-drag.md).",
+      "reason": "events.ts adds the origin 'agent' to viewchange and positionchange (PR 296); nothing about shapes changes.",
       "evidence": [
-        "Diff of src/host/events.ts, src/types.ts since 0.34.0 read against skills/shapes/SKILL.md"
+        "Diff of src/host/events.ts since 0.36.0 read against skills/shapes/SKILL.md"
       ]
     },
     "source:docs/content/docs/api/meta.json": {
-      "fingerprint": "44ca519498009df05e0aa3c348f9790ec54c10d7f50713b957709755315c9c76",
+      "fingerprint": "1173405c21cc7a01b938fed9eefebbf1d3146f1df634d4413b180463b8490820",
       "snapshot": {
-        "docs/content/docs/api/meta.json": "a253d5e8117f5218e5065127648aab197f1c1dd8be71a6fb5d6cc5918c1d140e"
+        "docs/content/docs/api/meta.json": "12ff9b995b314f70f4519c9eaffadc218e07e8b9d07114ecce3d66ea2bd62424"
       },
-      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Adds the ways and chains API pages to the navigation (PR 288, 290); the skills link the pages.",
+      "reason": "Adds the agent and agent-vite API pages to the navigation (PR 296).",
       "evidence": [
-        "Diff of docs/content/docs/api/meta.json since 0.35.0 read"
+        "Diff of docs/content/docs/api/meta.json since 0.36.0 read"
       ]
     },
     "source:src/core/hierarchy.ts": {
@@ -1298,15 +1312,15 @@
       ]
     },
     "source:src/host/inspect.ts": {
-      "fingerprint": "8a5be32c8d734dc4f6feebbe7d9f40c13e7e0ab9b4e62e0d2b2e34a47d752bd1",
+      "fingerprint": "64f5649f740f47e6bd6e6b682831e38ef98f26c6e9b3ace1719fb4eb5f404298",
       "snapshot": {
-        "src/host/inspect.ts": "7fb6c45be0c1064a1b77b69d73d79376562a2739d44ffd4d49f7733604031e8d"
+        "src/host/inspect.ts": "defb93f642cd2d23266dab8e8cefc6708b061fea4305b1586fe883074126898f"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "The registry isolates its watchers (PR 293); internal, read by the devtools and the bridge.",
       "evidence": [
-        "Diff of src/host/inspect.ts since 0.32.0 read"
+        "Diff of src/host/inspect.ts since 0.36.0 read"
       ]
     },
     "source:src/host/keyboard-input.ts": {
@@ -1538,15 +1552,15 @@
       ]
     },
     "source:src/webgl/label-layer.ts": {
-      "fingerprint": "949eda7ae91ff5ef64b2e37ff935ffe16ba5ef8ee663a83d3e7ad0c0fe107d0a",
+      "fingerprint": "ba8c3e1ca2f8600de4ecea66f3a8242f62febf32f8e49cb0d2a16f5b55ae02d0",
       "snapshot": {
-        "src/webgl/label-layer.ts": "d1b5bfdc0859b8d412d82aa150a28e7e50b5102d98f3c2f93ca32f6e50974226"
+        "src/webgl/label-layer.ts": "a886f4504ed3176d21032c6caf7ac433eec3f3409475930bc30e836859ba2df0"
       },
-      "head": "f9dad7c5f78a8c7fa46f4a90ff008aeb8a8069eb",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Internal module changed by the split of the host from its page and the graph without a page (PRs 253 to 264); its public effect is taught by core, export, headless and layouts.",
+      "reason": "LabelSink.refuse reports why a label is refused, at no cost without a sink (PR 296); read by the bridge, taught by agent.",
       "evidence": [
-        "Diff of src/webgl/label-layer.ts since 0.32.0 read"
+        "Diff of src/webgl/label-layer.ts since 0.36.0 read"
       ]
     },
     "source:src/webgl/label-levels.ts": {
@@ -2287,7 +2301,7 @@
       ]
     },
     "skill:skills/headless/SKILL.md": {
-      "fingerprint": "385d439ad1044855223d5300932d48f6a919c6d154006d3d90c674bcb3122a5e",
+      "fingerprint": "9746ca0fd24e9ae3aecb36df5319fd6507063e3fe12919f09443f5450e257410",
       "snapshot": {
         "docs/content/docs/(guide)/server-side-extracts.mdx": "b1eff300db342fe9e7654ad1d43d92865a0e12f3b09a2e3c4892bfe20f3c440b",
         "docs/content/docs/api/create-graph.mdx": "66b0bf7cd06151d434494064d99a1891e965d2c2dafbad11412f3fc7c1c87070",
@@ -2302,14 +2316,14 @@
         "src/headless/page.ts": "3bfb91c6cf3f20731c409335fe953a36cae5edb4cb4122fc690a981ab8a3a4f9",
         "src/headless/read-font.ts": "4ffffdb7317d1cc8708e7504df459a9b3235c30d3cfafc8c742b834f7c3c0cd0",
         "src/headless/text-estimate.ts": "5d4fc7b8aa1915c40b0f9b51c3d750d512a12b94ac5ead099c07a7f3bbe660cb",
-        "src/host/graph-core.ts": "9ffb3d0e0dea9c1dab49159ed06cee806dea06b6bdef02605a26e44e0a210d6c",
+        "src/host/graph-core.ts": "d93729350fc8fc7e812cb95f4efb4093e0e2346f3f58c55439da1cd47c22c1e7",
         "src/host/graph-instance.ts": "e99eb311c5e4d0764047ca297ae3256d735170828627142446e10732da48e583"
       },
-      "head": "877fcd87fa5bb127e0084f9bbd191fb0cd82794f",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "graph-core.ts registers its path source for the ways subpath (PR 288): ways also runs on a graph from createGraph, taught by paths; createGraph, settled() and the exports are unchanged.",
+      "reason": "graph-core.ts registers a graph after its internals (PR 293) and counts agent actions (PR 296); createGraph, settled() and the exports are unchanged; the bridge on createGraph is taught by agent.",
       "evidence": [
-        "Diff of src/host/graph-core.ts since 0.35.0 read against skills/headless/SKILL.md"
+        "Diff of src/host/graph-core.ts since 0.36.0 read against skills/headless/SKILL.md"
       ]
     },
     "source:src/core/label-metrics.ts": {
@@ -2505,15 +2519,15 @@
       ]
     },
     "source:docs/content/docs/(guide)/versioning.mdx": {
-      "fingerprint": "affff5794a8b118e8c6e96d5a3446441aa4cda1c2fa920c9721273ee3555a30b",
+      "fingerprint": "ed55ff2a7cd861966c3bc884d3dd18b24d0502824f438ff9d4b73305f912c464",
       "snapshot": {
-        "docs/content/docs/(guide)/versioning.mdx": "8f081209e7e1bfbb8b1a25693785efafb0154e370a38a365d90f747f5d5eed52"
+        "docs/content/docs/(guide)/versioning.mdx": "31fb202e7e2ab3493f00264cf5391eac09c322167f23f10ec85b3c8fdc3c7f11"
       },
-      "head": "6e8a249ae37723d0337e60cb7315b98bd864608a",
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
       "outcome": "no-change",
-      "reason": "Adds LayoutFollower to the table of experimental ports (PR 284); taught by interaction (references/elastic-drag.md).",
+      "reason": "Agent bridge added to the experimental table (PR 296); the agent skill says it is experimental.",
       "evidence": [
-        "Diff of docs/content/docs/(guide)/versioning.mdx since 0.34.0 read"
+        "Diff of docs/content/docs/(guide)/versioning.mdx since 0.36.0 read"
       ]
     },
     "source:docs/og/card.ts": {
@@ -2718,6 +2732,56 @@
       "reason": "Internal analysis behind ways, pair and chains() (PR 288): blocks with the exits joined to a virtual node, two disjoint paths; taught by paths.",
       "evidence": [
         "Diff of src/ways/ways.ts since 0.35.0 read"
+      ]
+    },
+    "skill:skills/agent/SKILL.md": {
+      "fingerprint": "a4e3216c0dd87a2caf94ee037b0788a3a3c8f6fd2750dfd4908c0f526afee6fe",
+      "snapshot": {
+        "docs/content/docs/(guide)/agent.mdx": "89e55b7cb7afc95e973a5a90d629e3364544402c26eb29ab6e280a05d87fe7ec",
+        "docs/content/docs/api/agent-vite.mdx": "64d6d8be4e368f5c9e665da4dce3016bec4b1a6e69c934869d7515be92c1ea48",
+        "docs/content/docs/api/agent.mdx": "f7336e5e46e16fb837838e1adeb847cdcd137b5a79fd3a327e104d1f741d9633",
+        "skills/agent/SKILL.md": "9e8133c036d5449044901673f8d61c6ff0a021150f1db114cefe013b51e3046d",
+        "src/agent/act.ts": "c197ec44ccc41aea9b2d9c903dedbb175ac58e108a7d805398372c1dc7ff234f",
+        "src/agent/agent.ts": "679656ad864884ff43b26d3f448dc203200b10066f9834cf3cef70d5090a34cf",
+        "src/agent/cli.ts": "60879463b64d136642b66b439c872a6873c8cf63c208b255f2862b173dadad21",
+        "src/agent/dev.ts": "4cf97f21da1e4d032fc54797311bdaaf1f1a4ff7de90d9dd23658081c27b340a",
+        "src/agent/index.ts": "4ba0c84f4ec0e2425d2bfc16400c3bf2ca33435788c08c1ce2a8e5170dbd97d5",
+        "src/agent/query.ts": "15e8e9dc9dfce27cdedea2f75dce931293b90f489c0b590d484563d58d54c4b0",
+        "src/agent/read.ts": "cfa42f332cb06514409ccc426b0c8bbd4ba0e35918463ff6666304cfbc151435",
+        "src/agent/types.ts": "22e417c7d92b77d9020df3ef4ce68bcb28013f3c4845b2c43d4327e83ebf0556",
+        "src/agent/vite.ts": "bb87b8b5b3077c94dac431ae3c55200d7e5865bd34d9ae4bc848db2de78c90e8"
+      },
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
+      "outcome": "updated",
+      "reason": "New skill from PR 296: the agent bridge (createGraphAgent, graphAgent() Vite plugin, the dev client and the TanStack Start line, the graph-agent command, snapshot, query, act, image, security), 12 failure modes.",
+      "evidence": [
+        "intent validate skills and scripts/check-skills-publish.mjs in pnpm verify pass at 10bf795: every fence typechecked, published copies under 500 lines",
+        "Maintainer review: skill changed after the code, examples without comments, no other library named",
+        "Diff of docs/content/docs/(guide)/agent.mdx, docs/content/docs/api/agent-vite.mdx, docs/content/docs/api/agent.mdx, src/agent/act.ts, src/agent/agent.ts, src/agent/cli.ts, src/agent/dev.ts, src/agent/index.ts, src/agent/query.ts, src/agent/read.ts, src/agent/types.ts, src/agent/vite.ts since 0.36.0 read against skills/agent/SKILL.md"
+      ]
+    },
+    "source:src/agent/keys.ts": {
+      "fingerprint": "ff53218955a70815ed34a70370f6114d021a11fb920a522934e30feff7d1421f",
+      "snapshot": {
+        "src/agent/keys.ts": "215680f85474ed258240d9a60043c8e26d255ae77ef1f4602ff49bfff2a727fc"
+      },
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
+      "outcome": "no-change",
+      "reason": "Internal target resolution of the bridge (keys, labels, group keys); taught by agent.",
+      "evidence": [
+        "Diff of src/agent/keys.ts since 0.36.0 read"
+      ]
+    },
+    "source:src/agent/subscribe.ts": {
+      "fingerprint": "c8e58f2a1d9555e56b73ceb1b6dc23935b2f36a8f18c2af05110c68222348d23",
+      "snapshot": {
+        "src/agent/subscribe.ts": "e6e4352702de5d20be7886cbbf9500eff1b5927f804a66f7a5009b9818696a17"
+      },
+      "head": "10bf7953b360ae7b19d426bcfcf199b425decaab",
+      "outcome": "no-change",
+      "reason": "Internal change journal of the bridge; taught by agent.",
+      "evidence": [
+        "Diff of src/agent/subscribe.ts since 0.36.0 read"
       ]
     }
   }

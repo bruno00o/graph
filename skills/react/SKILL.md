@@ -347,6 +347,8 @@ A graph whose context the browser took (more than 16 on the page) stays empty an
 
 `<Graph>` mounts the graph once, in a layout effect, and destroys it on unmount. StrictMode mounts, destroys and mounts again: one instance remains, and the `ref` receives the live one. Do not call `mountGraph` in a component; if you must, do it in `useEffect` and call `destroy()` in its cleanup.
 
+The adapters also run under TanStack Redact (`redact()` from `@tanstack/redact/vite`). With server rendering, add `ssr: { noExternal: true }` or the server render mixes both runtimes. Under Redact, StrictMode does not mount twice: check double-mount behaviour under React.
+
 Props that start the graph are read once, at the mount, and StrictMode mounts twice: `initialView`, `initialTime`, `initialHiddenLayers`, `initialFolded` and `initialPositions`. To bring nodes back where they were when the component mounts again, keep `graph.positions.snapshot()` before it unmounts and pass it as `initialPositions` (layouts skill): a `Map` or an array, never a one-shot iterator. `initialFolded` also takes a function of the group node, asked once for each group when it first has a child (groups skill); the function of the latest render is the one called.
 
 ```tsx
