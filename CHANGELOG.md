@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.37.0](https://github.com/bruno00o/graph/compare/0.36.0...0.37.0) (2026-11-26)
+
+
+### Features
+
+* let a coding agent read and drive a graph in development ([#296](https://github.com/bruno00o/graph/issues/296)) ([10bf795](https://github.com/bruno00o/graph/commit/10bf7953b360ae7b19d426bcfcf199b425decaab))
+
+
+### Bug Fixes
+
+* register a graph for the devtools once its internals are ready ([#293](https://github.com/bruno00o/graph/issues/293)) ([6b3b954](https://github.com/bruno00o/graph/commit/6b3b95420809a7439666047e391057021a283ad1))
+
 ## [0.36.0](https://github.com/bruno00o/graph/compare/0.35.0...0.36.0) (2026-11-24)
 
 
