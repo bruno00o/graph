@@ -313,7 +313,7 @@ Helpers that take a bare `GraphInstance` accept the instance of any definition. 
 
 `positions.set` moves a node even when its position comes from data channels (it stays there until its own `x` or `y` changes in the data). `snapshot()` reads every node of the data in a new `Map` that `set` takes back as is. A node still gliding is read where it is going; `snapshot({ settled: false })` reads where it is drawn now. A pair whose `x` or `y` is not finite is skipped, with a warning in development.
 
-`positionchange` fires after a drag, `positions.set` or a finished layout run, with `origin` `'drag'`, `'api'` or `'layout'`; moves that come from the data never emit it, so writing positions back to the data does not loop. It fires on every pointer move during a drag: save on `dragend`, or pace the writes. A stopped run emits nothing.
+`positionchange` fires after a drag, `positions.set` or a finished layout run, with `origin` `'drag'`, `'api'`, `'layout'` or `'agent'` (agent bridge); moves that come from the data never emit it, so writing positions back to the data does not loop. It fires on every pointer move during a drag: save on `dragend`, or pace the writes. A stopped run emits nothing.
 
 To keep a layout as data, write the result into the items and read it back with the `x` and `y` channels: those nodes then keep their place for every later run. With TanStack DB, `persistPositions` does this (tanstack-db skill).
 

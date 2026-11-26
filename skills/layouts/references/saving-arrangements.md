@@ -32,7 +32,7 @@ export function restore(entries: Iterable<readonly [Key, Point]>) {
 
 - `initialPositions` is read once and emits nothing; `undefined` means no entries. `positions.set` emits `positionchange` with the origin `'api'`, and the `duration` glides.
 - A record outlives the data. An entry whose key is not a node of the graph is ignored by both ways, without a warning, and the other entries apply. A node without an entry is new: the layout places it next to its placed neighbors, or it starts on the spiral. A snapshot is complete, so the next save drops stale entries. To clean a record you hold, keep the entries whose key `graph.positions.get(key)` knows.
-- To tell user moves from replayed ones, read the `origin` of `positionchange`: `'drag'` for a dragged node, `'layout'` for a layout result, `'api'` for `positions.set` and `positions.reset`. The event fires inside `set`, so a flag around your own replay is enough to keep it from counting as an edit; a layout result is an edit too.
+- To tell user moves from replayed ones, read the `origin` of `positionchange`: `'drag'` for a dragged node, `'layout'` for a layout result, `'api'` for `positions.set` and `positions.reset`, `'agent'` for the actions of the agent bridge. The event fires inside `set`, so a flag around your own replay is enough to keep it from counting as an edit; a layout result is an edit too.
 
 ```ts
 import type { GraphInstance, Key, Point } from '@bruno00o/graph'

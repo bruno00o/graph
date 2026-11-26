@@ -172,7 +172,7 @@ controller.abort()
 - `click` fires before the default selection, so a handler sees the selection as it was. A `doubleclick` on a group folds it after the handlers run, unless one calls `originalEvent.preventDefault()`.
 - `contextmenu` only reports the secondary click: it does not stop the menu of the browser. Call `originalEvent.preventDefault()` in the handler, as above, to show your own.
 - `pointermove` fires at most once per frame; the graph tracks the pointer for it only while a handler is subscribed. During a drag its target is the dragged node.
-- `dragstart`, `drag` and `dragend` carry `keys`: every moved node (the whole selection when the dragged node is selected, the nodes inside a dragged group). `positionchange` reports the positions, with `origin` `'drag'`, `'api'` or `'layout'`; on a map it also carries `geo`, the same nodes in degrees.
+- `dragstart`, `drag` and `dragend` carry `keys`: every moved node (the whole selection when the dragged node is selected, the nodes inside a dragged group). `positionchange` reports the positions, with `origin` `'drag'`, `'api'`, `'layout'` or `'agent'`; on a map it also carries `geo`, the same nodes in degrees.
 - A handler that throws stops neither the other handlers nor the click: its error goes to `reportError`. A handler may destroy the graph; the graph then does nothing more for that event.
 - Pass a `signal` to remove handlers together. `graph.signal` aborts when the graph is destroyed: give it to listeners you add elsewhere.
 

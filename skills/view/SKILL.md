@@ -98,7 +98,7 @@ graph.on('viewchange', ({ view: next, origin }) => console.log(next.zoom, origin
 - Animated calls interrupt each other: the last one wins. `duration` is in milliseconds and is zero with `prefers-reduced-motion`. They also stop the glide of a mouse wheel notch (`wheelGlide`, interaction skill), and a call without `duration` stops it too.
 - `zoomBy` multiplies the zoom around the center of the view. Every move, gestures and animation frames included, stays within the view limits.
 - `x`, `y`, `zoom`, `factor` and `duration` must be finite, or the call throws a `RangeError` and changes nothing. `zoomBy` also needs a factor above 0.
-- `viewchange` carries `origin`: `'user'` for gestures, the wheel, the keyboard and edge scrolling, `'api'` for `graph.view`, `update({ view })` and automatic framing. Use it to ignore your own moves. A glide after a wheel notch fires `viewchange` on every frame with `origin: 'user'` (about 30 frames for 200 ms), so debounce whatever you do with it.
+- `viewchange` carries `origin`: `'user'` for gestures, the wheel, the keyboard and edge scrolling, `'api'` for `graph.view`, `update({ view })` and automatic framing, `'agent'` for the actions of the agent bridge (`@bruno00o/graph/agent`). Use it to ignore your own moves. A glide after a wheel notch fires `viewchange` on every frame with `origin: 'user'` (about 30 frames for 200 ms), so debounce whatever you do with it.
 
 ### Choose what frames on its own
 
